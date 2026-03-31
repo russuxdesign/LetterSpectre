@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Letter Spectre</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #030008;
+    --purple: #6b21a8;
+    --purple-bright: #a855f7;
+    --purple-glow: #c084fc;
+    --red: #ef4444;
+    --red-bright: #ff2222;
+    --cyan: #22d3ee;
+    --text: #e2d4f0;
+    --dim: #7c6a8e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Crimson Text', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse 60% 40% at 50% 0%, #1a0030 0%, transparent 60%),
+                radial-gradient(ellipse 40% 30% at 50% 100%, #0d001a 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .particle {
+    position: absolute; width: 2px; height: 2px;
+    background: var(--purple-bright); border-radius: 50%; opacity: 0;
+    animation: float-up linear infinite;
+  }
+  @keyframes float-up {
+    0%   { opacity: 0; transform: translateY(0) scale(0); }
+    10%  { opacity: 0.6; }
+    90%  { opacity: 0.2; }
+    100% { opacity: 0; transform: translateY(-100vh) scale(2); }
+  }
+
+  #app {
+    position: relative; z-index: 1; width: 100%; max-width: 480px;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; padding: 0 0 32px 0;
+  }
+
+  /* DATE HEADER */
+  #date-header {
+    width: 100%; text-align: center; padding: 12px 20px 6px;
+    font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 3px;
+    color: var(--dim); text-transform: uppercase; border-bottom: 1px solid #1a0030;
+  }
+
+  /* STAT BAR */
+  #stat-bar {
+    display: flex; gap: 12px; padding: 5px 20px;
+    font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: 1px; color: var(--dim);
+  }
+  .stat-item span { color: var(--purple-glow); }
+
+  /* SPECTRE HEAD — compact */
+  #spectre-section {
+    width: 100%; display: flex; justify-content: center;
+    align-items: flex-end; padding-top: 4px;
+    position: relative; min-height: 100px;
+  }
+  .spectre-wrap {
+    position: relative; display: flex; flex-direction: column;
+    align-items: center; cursor: pointer;
+  }
+  .spectre-svg {
+    width: 88px; height: 104px;
+    filter: drop-shadow(0 0 14px #6b21a870) drop-shadow(0 0 30px #4a008060);
+    user-select: none;
+  }
+
+  /* Eye lid animations */
+  .eye-lid {
+    transform-box: fill-box;
+    transform-origin: center center;
+  }
+  .eye-lid.neutral { animation: eye-neutral 5s ease-in-out infinite; }
+  .eye-lid.angry   { animation: eye-angry 1.2s ease-in-out infinite; }
+  @keyframes eye-neutral {
+    0%, 78%, 100% { transform: scaleY(1); }
+    84%, 90%      { transform: scaleY(0.06); }
+  }
+  @keyframes eye-angry {
+    0%, 100% { transform: scaleY(0.28); }
+    50%      { transform: scaleY(0.65); }
+  }
+
+  /* Spectre speech */
+  #spectre-response {
+    min-height: 24px; text-align: center; font-family: 'Cinzel', serif;
+    font-size: 11.5px; padding: 5px 20px 2px; color: var(--text); letter-spacing: 0.5px;
+  }
+  #spectre-response .wrong  { color: var(--red-bright); font-weight: 700; }
+  #spectre-response .correct{ color: #7fffb0; font-weight: 700; }
+
+  /* GUESS INPUT */
+  #guess-section {
+    width: calc(100% - 40px); display: flex; align-items: center;
+    gap: 10px; margin: 5px 0 9px;
+    background: #0a0014; border: 1px solid #3d0f6e;
+    border-radius: 8px; padding: 9px 12px; box-shadow: 0 0 12px #6b21a820;
+  }
+  #guess-input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-family: 'Cinzel', serif;
+    font-size: 16px; letter-spacing: 1px; caret-color: var(--purple-glow);
+  }
+  #guess-input::placeholder { color: var(--dim); font-size: 13px; }
+  #guess-input:disabled { opacity: 0.4; cursor: not-allowed; }
+  #guess-btn {
+    background: var(--purple); border: none; color: white;
+    width: 34px; height: 34px; border-radius: 6px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, transform 0.1s; flex-shrink: 0;
+  }
+  #guess-btn:hover  { background: var(--purple-bright); }
+  #guess-btn:active { transform: scale(0.93); }
+  #guess-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #guess-btn svg { width: 17px; height: 17px; }
+
+  /* ─── ARENA ─── */
+  #arena {
+    width: calc(100% - 16px);
+    display: grid;
+    grid-template-columns: 70px 1fr 70px;
+    gap: 4px;
+    position: relative;
+    min-height: 340px;
+    flex: 1;
+  }
+
+  /* SWORD COLUMNS */
+  .sword-col { display: flex; flex-direction: column; align-items: center; }
+  .sword-col-label {
+    font-family: 'Cinzel', serif; font-size: 8px; letter-spacing: 1.5px;
+    color: var(--dim); text-transform: uppercase; margin-bottom: 3px;
+    height: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .swords-list {
+    display: flex; flex-direction: column;
+    gap: 0; align-items: center; flex: 1;
+    justify-content: space-around; width: 100%;
+  }
+
+  /* Sword slot */
+  .sword-slot {
+    display: flex; flex-direction: column; align-items: center;
+    width: 100%; gap: 2px; min-height: 68px; justify-content: center;
+    position: relative;
+  }
+
+  .sword-btn {
+    background: none; border: none; cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, filter 0.15s;
+    width: 68px; height: 20px; flex-shrink: 0;
+  }
+  .sword-btn:hover:not(:disabled) { transform: scale(1.1); filter: brightness(1.4); }
+  .sword-btn:disabled { cursor: default; }
+  .sword-btn.used { opacity: 0; pointer-events: none; }
+
+  /* Plunge animations — syn (left col) plunges RIGHT, ant (right col) plunges LEFT */
+  .sword-btn.plunging       { animation: plunge-r 0.5s ease-in forwards; }
+  .sword-btn.plunging-left  { animation: plunge-l 0.5s ease-in forwards; }
+  @keyframes plunge-r {
+    0%   { transform: translateX(0); opacity: 1; }
+    55%  { transform: translateX(72px); opacity: 1; }
+    100% { transform: translateX(72px); opacity: 0; }
+  }
+  @keyframes plunge-l {
+    0%   { transform: translateX(0); opacity: 1; }
+    55%  { transform: translateX(-72px); opacity: 1; }
+    100% { transform: translateX(-72px); opacity: 0; }
+  }
+
+  /* Hint chips — appear in place of the sword */
+  .hint-chip {
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.5px;
+    color: var(--purple-glow); text-align: center;
+    padding: 3px 4px; border: 1px solid #4a1080;
+    border-radius: 4px; background: #0d0020;
+    width: 100%; word-break: break-word; line-height: 1.3;
+    animation: chip-in 0.35s ease-out;
+    display: none;
+  }
+  .hint-chip.antonym { color: #fca5a5; border-color: #7a1020; }
+  .hint-chip.show    { display: block; }
+  @keyframes chip-in {
+    from { transform: scale(0.7); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+
+  /* ─── THE BOX ─── */
+  #box-wrap {
+    display: flex; flex-direction: column;
+    align-items: center; padding-top: 20px; flex: 1;
+  }
+  #magic-box {
+    width: 100%; flex: 1;
+    border: 2px solid #4a1080; border-radius: 6px;
+    background: linear-gradient(180deg, #0d0020 0%, #05000e 100%);
+    box-shadow: 0 0 20px #6b21a840, inset 0 0 30px #1a003030;
+    position: relative; overflow: hidden; min-height: 300px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #magic-box::before {
+    content: ''; position: absolute; inset: -1px; border-radius: 6px;
+    opacity: 0.35; pointer-events: none;
+    background: linear-gradient(45deg, #6b21a8, transparent, #6b21a8, transparent) border-box;
+    animation: bh 6s linear infinite;
+  }
+  @keyframes bh { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
+
+  .qmark-grid {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 6px; padding: 10px; width: 100%; height: 100%;
+    position: absolute; inset: 0;
+  }
+  .qmark {
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cinzel Decorative', serif; font-size: 20px;
+    color: #2d1047; animation: qp 3s ease-in-out infinite;
+    animation-delay: var(--d,0s); user-select: none;
+  }
+  @keyframes qp {
+    0%,100%{color:#2d1047;text-shadow:none}
+    50%    {color:#4a1080;text-shadow:0 0 10px #6b21a870}
+  }
+
+  /* Man — hidden until end */
+  #man-container {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; z-index: 5;
+  }
+  .man-svg { width: 64px; opacity: 0; transition: opacity 0.6s; filter: drop-shadow(0 0 10px #6b21a870); }
+  .man-svg.freed { opacity:1; animation: mf 2s ease-in-out infinite; filter: drop-shadow(0 0 15px #7fffb080); }
+  .man-svg.dead  { opacity:0.9; animation: md 0.8s ease-in forwards; }
+  @keyframes mf { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+  @keyframes md  { 0%{transform:rotate(0)translateY(0);opacity:1} 100%{transform:rotate(-90deg)translateY(35px);opacity:0.3} }
+
+  /* ─── MODAL (intro) ─── */
+  #modal-backdrop {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(2,0,10,0.90);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 70px;
+    backdrop-filter: blur(3px);
+  }
+  #modal-backdrop.hidden { display: none; }
+
+  #word-bubble {
+    background: #0e0018; border: 1px solid #5b1a9a; border-radius: 16px;
+    padding: 22px 22px 20px; width: calc(100% - 40px); max-width: 400px;
+    font-family: 'Crimson Text', serif; font-size: 16px; line-height: 1.7;
+    color: var(--text); box-shadow: 0 0 30px #6b21a860;
+    position: relative; animation: brise 0.4s ease-out;
+  }
+  @keyframes brise { from{transform:translateY(40px);opacity:0} to{transform:translateY(0);opacity:1} }
+  /* tail pointing UP toward spectre */
+  #word-bubble::after {
+    content:''; position:absolute; bottom:100%; left:50%; transform:translateX(-50%);
+    border:10px solid transparent; border-bottom-color:#5b1a9a;
+  }
+  #word-bubble::before {
+    content:''; position:absolute; bottom:calc(100% - 2px); left:50%; transform:translateX(-50%);
+    border:9px solid transparent; border-bottom-color:#0e0018; z-index:1;
+  }
+  #bubble-close {
+    position:absolute; top:10px; right:14px; background:none; border:none;
+    color:var(--dim); cursor:pointer; font-size:18px; line-height:1; padding:2px 4px; transition:color 0.2s;
+  }
+  #bubble-close:hover { color:var(--red); }
+  .cursed-word { color:var(--cyan); font-weight:700; }
+  .strike-word { color:var(--red-bright); font-weight:700; }
+
+  /* ─── SKELETON HAND SVG ─── */
+  #skel-hand {
+    position: fixed; pointer-events: none; z-index: 300;
+    display: none; width: 44px; height: 56px;
+    filter: drop-shadow(0 0 5px #6b21a8) drop-shadow(0 0 10px #3a005080);
+    animation: skelp 0.75s ease-in forwards;
+  }
+  @keyframes skelp {
+    0%   { opacity:1; transform:scale(0.75) translateY(-18px); }
+    35%  { opacity:1; transform:scale(1.15) translateY(3px); }
+    100% { opacity:0; transform:scale(1)    translateY(26px); }
+  }
+
+  /* ─── END OVERLAY ─── */
+  #end-overlay {
+    position:fixed; inset:0; z-index:400;
+    display:none; flex-direction:column;
+    align-items:center; justify-content:center;
+    background:#030008ee; backdrop-filter:blur(4px);
+  }
+  #end-overlay.visible { display:flex; }
+  .end-card {
+    background:#0d0020; border:1px solid; border-radius:16px;
+    padding:34px 26px 26px; max-width:340px; width:90%; text-align:center;
+  }
+  .end-card.win  { border-color:#22c55e; box-shadow:0 0 40px #22c55e30; }
+  .end-card.lose { border-color:var(--red); box-shadow:0 0 40px #ef444440; }
+  .end-title { font-family:'Cinzel Decorative',serif; font-size:24px; margin-bottom:12px; }
+  .end-title.win  { color:#22c55e; text-shadow:0 0 20px #22c55e80; }
+  .end-title.lose { color:var(--red-bright); text-shadow:0 0 20px #ff222280; }
+  .end-body  { font-size:15px; line-height:1.7; color:var(--text); margin-bottom:14px; }
+  .end-word  { font-family:'Cinzel',serif; font-size:22px; color:var(--purple-glow); letter-spacing:4px; margin:8px 0; }
+  .end-stats { font-family:'Cinzel',serif; font-size:11px; color:var(--dim); letter-spacing:1px; line-height:1.9; margin-bottom:18px; }
+  .share-btn {
+    background:var(--purple); border:none; color:white;
+    font-family:'Cinzel',serif; font-size:13px; letter-spacing:2px;
+    padding:13px 24px; border-radius:8px; cursor:pointer; width:100%;
+    transition:background 0.2s,transform 0.1s; text-transform:uppercase;
+  }
+  .share-btn:hover { background:var(--purple-bright); }
+  .share-btn.lose-btn { background:#7a1020; }
+  .share-btn.lose-btn:hover { background:#b01a2e; }
+
+  /* Flash */
+  .blood-drip,.free-flash {
+    position:fixed;inset:0;pointer-events:none;z-index:350;
+    animation:flout 1.2s ease-out forwards;
+  }
+  .blood-drip { background:radial-gradient(ellipse at 50% 40%,#ff000028 0%,transparent 60%); }
+  .free-flash { background:radial-gradient(ellipse at 50% 40%,#22c55e28 0%,transparent 60%); }
+  @keyframes flout { 0%{opacity:0} 20%{opacity:1} 100%{opacity:0} }
+
+  /* Toast */
+  #toast {
+    position:fixed;bottom:24px;left:50%;
+    transform:translateX(-50%) translateY(80px);
+    background:#1a0030;border:1px solid var(--purple);
+    color:var(--purple-glow);font-family:'Cinzel',serif;
+    font-size:12px;letter-spacing:1px;padding:10px 22px;
+    border-radius:24px;transition:transform 0.3s ease;
+    z-index:999;pointer-events:none;
+  }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+
+<div id="app">
+  <div id="date-header">⬡ LETTER SPECTRE ⬡ &nbsp;|&nbsp; <span id="today-date"></span></div>
+  <div id="stat-bar">
+    <div class="stat-item">GUESSES: <span id="stat-guesses">0</span></div>
+    <div class="stat-item">HINTS: <span id="stat-hints">0</span></div>
+    <div class="stat-item">TIME: <span id="stat-time">0:00</span></div>
+  </div>
+
+  <!-- SPECTRE -->
+  <div id="spectre-section">
+    <div class="spectre-wrap" id="spectre-wrap">
+      <svg class="spectre-svg" viewBox="0 0 170 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="hG" cx="50%" cy="30%" r="60%">
+            <stop offset="0%" stop-color="#3b0764"/>
+            <stop offset="100%" stop-color="#0d0018"/>
+          </radialGradient>
+          <radialGradient id="fG" cx="50%" cy="40%" r="50%">
+            <stop offset="0%" stop-color="#1a0030"/>
+            <stop offset="100%" stop-color="#050010"/>
+          </radialGradient>
+          <filter id="eg">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <ellipse cx="85" cy="188" rx="68" ry="16" fill="#0a0015" opacity="0.5"/>
+        <path d="M14,132 Q12,62 85,12 Q158,62 156,132 Q144,178 85,188 Q26,178 14,132Z" fill="url(#hG)"/>
+        <path d="M34,132 Q32,70 85,30 Q138,70 136,132 Q126,170 85,178 Q44,170 34,132Z" fill="url(#fG)"/>
+        <path d="M14,132 Q12,62 85,12 Q158,62 156,132" fill="none" stroke="#4a1080" stroke-width="1.5" opacity="0.35"/>
+        <path d="M52,52 Q72,82 70,122" fill="none" stroke="#1a003040" stroke-width="2"/>
+        <path d="M118,52 Q98,82 100,122" fill="none" stroke="#1a003040" stroke-width="2"/>
+
+        <!-- LEFT EYE -->
+        <g transform="translate(60,93)">
+          <ellipse rx="16" ry="11" fill="#550000" opacity="0.45" filter="url(#eg)"/>
+          <ellipse id="left-lid" class="eye-lid neutral" rx="15" ry="10" fill="#100020"/>
+          <ellipse rx="8" ry="8" fill="#cc0000" filter="url(#eg)"/>
+          <ellipse rx="5" ry="5" fill="#ff3333"/>
+          <ellipse rx="2" ry="2" cx="2" cy="-2.5" fill="#ff9999" opacity="0.7"/>
+        </g>
+        <!-- RIGHT EYE -->
+        <g transform="translate(110,93)">
+          <ellipse rx="16" ry="11" fill="#550000" opacity="0.45" filter="url(#eg)"/>
+          <ellipse id="right-lid" class="eye-lid neutral" rx="15" ry="10" fill="#100020"/>
+          <ellipse rx="8" ry="8" fill="#cc0000" filter="url(#eg)"/>
+          <ellipse rx="5" ry="5" fill="#ff3333"/>
+          <ellipse rx="2" ry="2" cx="2" cy="-2.5" fill="#ff9999" opacity="0.7"/>
+        </g>
+        <path d="M72,130 Q85,136 98,130" fill="none" stroke="#2d0050" stroke-width="1.5" opacity="0.45"/>
+      </svg>
+    </div>
+  </div>
+
+  <div id="spectre-response"></div>
+
+  <div id="guess-section">
+    <input type="text" id="guess-input" placeholder="Enter your guess…"
+           autocomplete="off" autocorrect="off" spellcheck="false"/>
+    <button id="guess-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ARENA -->
+  <div id="arena">
+    <div class="sword-col">
+      <div class="sword-col-label">synonyms</div>
+      <div class="swords-list" id="syn-swords"></div>
+    </div>
+
+    <div id="box-wrap">
+      <div id="magic-box">
+        <div class="qmark-grid" id="qmark-grid"></div>
+        <div id="man-container">
+          <svg class="man-svg" id="man-svg" viewBox="0 0 80 120" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="mG" cx="50%" cy="30%" r="60%">
+                <stop offset="0%" stop-color="#c084fc"/>
+                <stop offset="100%" stop-color="#7c3aed"/>
+              </radialGradient>
+            </defs>
+            <circle cx="40" cy="22" r="14" fill="url(#mG)" opacity="0.9"/>
+            <circle cx="35" cy="19" r="2" fill="#0d0020"/>
+            <circle cx="45" cy="19" r="2" fill="#0d0020"/>
+            <path d="M35,27 Q40,31 45,27" fill="none" stroke="#0d0020" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="28" y="38" width="24" height="38" rx="5" fill="#6d28d9" opacity="0.9"/>
+            <path d="M28,44 L12,60" stroke="#7c3aed" stroke-width="7" stroke-linecap="round"/>
+            <path d="M52,44 L68,60" stroke="#7c3aed" stroke-width="7" stroke-linecap="round"/>
+            <path d="M34,76 L28,105" stroke="#5b21b6" stroke-width="8" stroke-linecap="round"/>
+            <path d="M46,76 L52,105" stroke="#5b21b6" stroke-width="8" stroke-linecap="round"/>
+            <g id="chains" opacity="0.7">
+              <path d="M12,60 Q8,62 8,68 Q8,74 14,74" stroke="#d4a017" stroke-width="2" fill="none"/>
+              <circle cx="8" cy="68" r="3" fill="none" stroke="#d4a017" stroke-width="2"/>
+              <path d="M68,60 Q72,62 72,68 Q72,74 66,74" stroke="#d4a017" stroke-width="2" fill="none"/>
+              <circle cx="72" cy="68" r="3" fill="none" stroke="#d4a017" stroke-width="2"/>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="sword-col">
+      <div class="sword-col-label">antonyms</div>
+      <div class="swords-list" id="ant-swords"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BACKDROP -->
+<div id="modal-backdrop">
+  <div id="word-bubble">
+    <button id="bubble-close">✕</button>
+    I'm thinking of a word. Guess what it is to free the man in the box.<br><br>
+    Need a hint? Choose a sword. I should warn you though, one of the swords is
+    <span class="cursed-word">CURSED</span> and will
+    <span class="strike-word">STRIKE</span> the man. Do you dare take the risk?
+  </div>
+</div>
+
+<!-- SKELETON HAND (SVG, not emoji) -->
+<svg id="skel-hand" viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
+  <!-- Wrist / base -->
+  <ellipse cx="22" cy="50" rx="12" ry="5" fill="#c8bda0" stroke="#8a7a58" stroke-width="1"/>
+  <!-- Palm -->
+  <rect x="7" y="26" width="30" height="22" rx="4" fill="#d2c8a8" stroke="#8a7a58" stroke-width="1.1"/>
+  <!-- Knuckle bumps -->
+  <ellipse cx="12" cy="26" rx="3.5" ry="2.5" fill="#c8bda0" stroke="#8a7a58" stroke-width="0.9"/>
+  <ellipse cx="19" cy="24" rx="3.5" ry="2.5" fill="#c8bda0" stroke="#8a7a58" stroke-width="0.9"/>
+  <ellipse cx="26" cy="24" rx="3.5" ry="2.5" fill="#c8bda0" stroke="#8a7a58" stroke-width="0.9"/>
+  <ellipse cx="33" cy="26" rx="3" ry="2.2" fill="#c8bda0" stroke="#8a7a58" stroke-width="0.9"/>
+  <!-- Index finger -->
+  <rect x="9" y="8" width="6" height="19" rx="3" fill="#d2c8a8" stroke="#8a7a58" stroke-width="1"/>
+  <line x1="12" y1="15" x2="12" y2="18" stroke="#8a7a58" stroke-width="0.8" opacity="0.7"/>
+  <!-- Middle finger -->
+  <rect x="17" y="5" width="6" height="20" rx="3" fill="#d2c8a8" stroke="#8a7a58" stroke-width="1"/>
+  <line x1="20" y1="13" x2="20" y2="16" stroke="#8a7a58" stroke-width="0.8" opacity="0.7"/>
+  <!-- Ring finger -->
+  <rect x="25" y="6" width="6" height="19" rx="3" fill="#d2c8a8" stroke="#8a7a58" stroke-width="1"/>
+  <line x1="28" y1="14" x2="28" y2="17" stroke="#8a7a58" stroke-width="0.8" opacity="0.7"/>
+  <!-- Pinky -->
+  <rect x="33" y="11" width="5" height="16" rx="2.5" fill="#d2c8a8" stroke="#8a7a58" stroke-width="1"/>
+  <line x1="35.5" y1="17" x2="35.5" y2="20" stroke="#8a7a58" stroke-width="0.8" opacity="0.7"/>
+  <!-- Thumb -->
+  <rect x="3" y="26" width="6" height="13" rx="3" fill="#d2c8a8" stroke="#8a7a58" stroke-width="1"
+        transform="rotate(-18,6,30)"/>
+  <!-- Palm bone lines -->
+  <line x1="12" y1="28" x2="12" y2="46" stroke="#8a7a58" stroke-width="0.6" opacity="0.4"/>
+  <line x1="20" y1="27" x2="20" y2="46" stroke="#8a7a58" stroke-width="0.6" opacity="0.4"/>
+  <line x1="28" y1="27" x2="28" y2="46" stroke="#8a7a58" stroke-width="0.6" opacity="0.4"/>
+  <line x1="35" y1="28" x2="35" y2="46" stroke="#8a7a58" stroke-width="0.6" opacity="0.4"/>
+</svg>
+
+<!-- End overlay -->
+<div id="end-overlay">
+  <div class="end-card" id="end-card">
+    <div class="end-title" id="end-title"></div>
+    <div class="end-body"  id="end-body"></div>
+    <div class="end-word"  id="end-word"></div>
+    <div class="end-stats" id="end-stats"></div>
+    <button class="share-btn" id="share-btn"></button>
+  </div>
+</div>
+
+<div id="toast">Copied!</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  WORD POOL
+// ═══════════════════════════════════════════
+const WORD_DATA=[
+  {word:"SHADOW",   synonyms:["SHADE","SILHOUETTE","GLOOM","DARKNESS"],  antonyms:["LIGHT","BRIGHTNESS","CLARITY","RADIANCE"]},
+  {word:"ANCIENT",  synonyms:["ARCHAIC","PRIMEVAL","AGED","VENERABLE"],  antonyms:["MODERN","RECENT","YOUNG","NEW"]},
+  {word:"WRATH",    synonyms:["FURY","RAGE","IRE","ANGER"],              antonyms:["CALM","PEACE","JOY","SERENITY"]},
+  {word:"PHANTOM",  synonyms:["SPECTER","WRAITH","GHOST","APPARITION"], antonyms:["REALITY","SUBSTANCE","FLESH","BODY"]},
+  {word:"GRIM",     synonyms:["SOMBER","BLEAK","STERN","DOUR"],         antonyms:["CHEERFUL","BRIGHT","MERRY","JOYFUL"]},
+  {word:"CURSE",    synonyms:["HEX","JINX","BLIGHT","SPELL"],           antonyms:["BLESS","CHARM","GRACE","BOON"]},
+  {word:"DREAD",    synonyms:["TERROR","FEAR","HORROR","FRIGHT"],       antonyms:["COURAGE","CALM","PEACE","HOPE"]},
+  {word:"CRYPTIC",  synonyms:["OBSCURE","ARCANE","MYSTIC","VEILED"],    antonyms:["CLEAR","PLAIN","OBVIOUS","OPEN"]},
+  {word:"MALEVOLENT",synonyms:["SINISTER","WICKED","VILE","EVIL"],      antonyms:["KIND","BENIGN","GOOD","NOBLE"]},
+  {word:"OMINOUS",  synonyms:["FOREBODING","DIRE","DARK","GRIM"],       antonyms:["HOPEFUL","BRIGHT","LUCKY","AUSPICIOUS"]},
+  {word:"VOID",     synonyms:["ABYSS","EMPTINESS","NULL","VACUUM"],     antonyms:["FULLNESS","SOLID","PRESENCE","MATTER"]},
+  {word:"EERIE",    synonyms:["UNCANNY","SPOOKY","WEIRD","GHOSTLY"],    antonyms:["NORMAL","FAMILIAR","SAFE","NATURAL"]},
+  {word:"SHROUD",   synonyms:["VEIL","CLOAK","WRAP","MANTLE"],          antonyms:["UNCOVER","REVEAL","EXPOSE","UNVEIL"]},
+  {word:"SINISTER", synonyms:["MENACING","DARK","OMINOUS","EVIL"],      antonyms:["BENIGN","GOOD","INNOCENT","HARMLESS"]},
+  {word:"ENIGMA",   synonyms:["MYSTERY","RIDDLE","PUZZLE","CONUNDRUM"], antonyms:["ANSWER","SOLUTION","CLARITY","TRUTH"]},
+  {word:"FORLORN",  synonyms:["DESOLATE","HOPELESS","MISERABLE","LOST"],antonyms:["HOPEFUL","CHEERFUL","JOYFUL","CONTENT"]},
+  {word:"ABYSS",    synonyms:["CHASM","VOID","GULF","DEPTHS"],          antonyms:["PEAK","SUMMIT","HEIGHT","SURFACE"]},
+  {word:"WICKED",   synonyms:["EVIL","VILE","SINFUL","CORRUPT"],        antonyms:["VIRTUOUS","PURE","HOLY","RIGHTEOUS"]},
+  {word:"TORMENT",  synonyms:["AGONY","ANGUISH","MISERY","SUFFERING"],  antonyms:["COMFORT","RELIEF","JOY","PEACE"]},
+  {word:"GLOOM",    synonyms:["MURK","DUSK","DIMNESS","SHADOW"],        antonyms:["RADIANCE","SUNLIGHT","BRIGHTNESS","CHEER"]},
+  {word:"MACABRE",  synonyms:["GHOULISH","MORBID","GRISLY","GROTESQUE"],antonyms:["CHEERFUL","WHOLESOME","PLEASANT","LIGHT"]},
+  {word:"DESOLATE", synonyms:["BARREN","BLEAK","STARK","DESTITUTE"],    antonyms:["LUSH","VIBRANT","POPULATED","THRIVING"]},
+  {word:"SPECTER",  synonyms:["GHOST","WRAITH","SHADE","PHANTOM"],      antonyms:["LIVING","MORTAL","FLESH","BODY"]},
+  {word:"GRAVE",    synonyms:["TOMB","SEPULCHER","CRYPT","VAULT"],      antonyms:["CRADLE","LIFE","BIRTH","BEGINNING"]},
+  {word:"DUSK",     synonyms:["TWILIGHT","EVENTIDE","GLOAMING","NIGHTFALL"],antonyms:["DAWN","DAYBREAK","SUNRISE","MORNING"]},
+  {word:"HAUNTED",  synonyms:["POSSESSED","CURSED","TORMENTED","PLAGUED"],antonyms:["FREE","PURE","CLEAR","PEACEFUL"]},
+  {word:"MALICE",   synonyms:["SPITE","HATRED","VENOM","ILL WILL"],     antonyms:["KINDNESS","LOVE","GOODWILL","CHARITY"]},
+  {word:"PERIL",    synonyms:["DANGER","HAZARD","JEOPARDY","RISK"],     antonyms:["SAFETY","SECURITY","SHELTER","HAVEN"]},
+  {word:"LAMENT",   synonyms:["MOURN","GRIEVE","WAIL","BEMOAN"],        antonyms:["REJOICE","CELEBRATE","CHEER","PRAISE"]},
+  {word:"OBLIVION", synonyms:["NOTHINGNESS","VOID","DARKNESS","ERASURE"],antonyms:["MEMORY","AWARENESS","EXISTENCE","BEING"]},
+];
+
+// ═══════════════════════════════════════════
+//  DAILY SEED
+// ═══════════════════════════════════════════
+function getDailySeed(){
+  const now=new Date();
+  const est=new Date(now.toLocaleString("en-US",{timeZone:"America/New_York"}));
+  if(est.getHours()<8) est.setDate(est.getDate()-1);
+  return `${est.getFullYear()}-${est.getMonth()}-${est.getDate()}`;
+}
+function seedRandom(s){ let h=0; for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;} return Math.abs(h); }
+
+const seed=getDailySeed();
+const sn=seedRandom(seed);
+const wordEntry=WORD_DATA[sn%WORD_DATA.length];
+const TARGET_WORD=wordEntry.word;
+const CURSED_IDX=sn%8; // 0-3 syn, 4-7 ant
+
+const SKEY=`letter-spectre-${seed}`;
+function loadState(){
+  try{const s=localStorage.getItem(SKEY);if(s)return JSON.parse(s);}catch(e){}
+  return{guesses:0,hints:0,revealedSyns:[],revealedAnts:[],usedSwords:[],status:'playing',startTime:Date.now(),endTime:null,guessedWords:[]};
+}
+function saveState(st){localStorage.setItem(SKEY,JSON.stringify(st));}
+let gs=loadState();
+
+// ═══════════════════════════════════════════
+//  AUDIO — realistic human mouth sounds
+// ═══════════════════════════════════════════
+let AC=null;
+function getAC(){if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();return AC;}
+
+function playPlunge(){
+  try{
+    const ac=getAC(),t=ac.currentTime;
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.type='sawtooth'; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(55,t+0.22);
+    g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+    o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+0.28);
+    // flesh thud
+    const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*0.14),ac.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+    const bs=ac.createBufferSource(),bg=ac.createGain(); bg.gain.value=0.5;
+    bs.buffer=buf; bs.connect(bg);bg.connect(ac.destination); bs.start(t+0.13);
+  }catch(e){}
+}
+
+// Gasp — breathy sharp inhale using filtered noise + short voiced tone
+function playGasp(){
+  try{
+    const ac=getAC(), t=ac.currentTime+0.30;
+    const len=Math.floor(ac.sampleRate*0.48), buf=ac.createBuffer(1,len,ac.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1);
+    const src=ac.createBufferSource(); src.buffer=buf;
+    // shape into sharp inhale vowel "ah"
+    const f1=ac.createBiquadFilter(); f1.type='bandpass'; f1.frequency.setValueAtTime(800,t); f1.frequency.linearRampToValueAtTime(1300,t+0.22); f1.Q.value=4;
+    const f2=ac.createBiquadFilter(); f2.type='bandpass'; f2.frequency.value=2600; f2.Q.value=6;
+    const g=ac.createGain(); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.55,t+0.06); g.gain.linearRampToValueAtTime(0.3,t+0.28); g.gain.exponentialRampToValueAtTime(0.001,t+0.48);
+    src.connect(f1);f1.connect(f2);f2.connect(g);g.connect(ac.destination); src.start(t);src.stop(t+0.48);
+    // voiced "hhAH" undertone
+    const o=ac.createOscillator(),og=ac.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(240,t); o.frequency.linearRampToValueAtTime(340,t+0.18);
+    og.gain.setValueAtTime(0,t); og.gain.linearRampToValueAtTime(0.06,t+0.04); og.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+    o.connect(og);og.connect(ac.destination); o.start(t);o.stop(t+0.3);
+  }catch(e){}
+}
+
+// Scream — raw male scream: voiced harmonics + shaping + noise breath
+function playScream(){
+  try{
+    const ac=getAC(), t=ac.currentTime+0.35, dur=1.05;
+    // Multiple harmonic oscillators — male vocal pitch ~100Hz base
+    [100,200,305,410].forEach((f,i)=>{
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(f+i*5,t);
+      o.frequency.linearRampToValueAtTime(f*1.55+i*8,t+0.35);
+      o.frequency.linearRampToValueAtTime(f*1.2,t+dur);
+      g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.11-i*0.02,t+0.05);
+      g.gain.setValueAtTime(0.09-i*0.02,t+0.4); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      // Vowel formant "AAAH"
+      const form=ac.createBiquadFilter(); form.type='bandpass';
+      form.frequency.setValueAtTime(700,t); form.frequency.linearRampToValueAtTime(1500,t+0.3); form.Q.value=3.5;
+      o.connect(form);form.connect(g);g.connect(ac.destination); o.start(t);o.stop(t+dur);
+    });
+    // Breathy noise overtop
+    const nb=ac.createBuffer(1,Math.floor(ac.sampleRate*dur),ac.sampleRate);
+    const nd=nb.getChannelData(0); for(let i=0;i<nd.length;i++) nd[i]=(Math.random()*2-1);
+    const ns=ac.createBufferSource(); ns.buffer=nb;
+    const nhp=ac.createBiquadFilter(); nhp.type='highpass'; nhp.frequency.value=700;
+    const ng=ac.createGain(); ng.gain.setValueAtTime(0,t); ng.gain.linearRampToValueAtTime(0.18,t+0.04); ng.gain.setValueAtTime(0.12,t+0.4); ng.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    ns.connect(nhp);nhp.connect(ng);ng.connect(ac.destination); ns.start(t);ns.stop(t+dur);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════
+//  PARTICLES
+// ═══════════════════════════════════════════
+function spawnParticles(){
+  const c=document.getElementById('particles');
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div'); p.className='particle';
+    p.style.left=Math.random()*100+'%'; p.style.bottom='-4px';
+    p.style.animationDuration=(6+Math.random()*10)+'s';
+    p.style.animationDelay=(Math.random()*12)+'s';
+    const sz=(1+Math.random()*2)+'px'; p.style.width=p.style.height=sz;
+    c.appendChild(p);
+  }
+}
+
+// Q GRID
+function buildQGrid(){
+  const g=document.getElementById('qmark-grid'); g.innerHTML='';
+  for(let i=0;i<18;i++){
+    const q=document.createElement('div'); q.className='qmark';
+    q.style.setProperty('--d',(Math.random()*3)+'s'); q.textContent='?';
+    g.appendChild(q);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  SWORD SVG — full sword, pointing toward box
+//  dir='right' => tip on right (→), used for LEFT column pointing right toward box
+//  dir='left'  => tip on left  (←), used for RIGHT column pointing left toward box
+// ═══════════════════════════════════════════
+function makeSword(dir){
+  const flip = dir==='left' ? `transform="scale(-1,1) translate(-100,0)"` : '';
+  return `<svg viewBox="0 0 100 20" width="68" height="14" xmlns="http://www.w3.org/2000/svg">
+  <g ${flip}>
+    <!-- Pommel -->
+    <ellipse cx="5.5" cy="10" rx="5.5" ry="8" fill="#6e7a8a"/>
+    <ellipse cx="5.5" cy="10" rx="3.8" ry="5.5" fill="#92a1b2"/>
+    <ellipse cx="5.5" cy="10" rx="1.8" ry="2.6" fill="#a8bac8"/>
+    <!-- Grip -->
+    <rect x="11" y="6.5" width="20" height="7" rx="2.5" fill="#5a3a1a"/>
+    <rect x="11" y="6.5" width="20" height="3.5" rx="2.5" fill="#7a5228" opacity="0.5"/>
+    <line x1="15" y1="6.5" x2="15" y2="13.5" stroke="#3a2410" stroke-width="1" opacity="0.55"/>
+    <line x1="19" y1="6.5" x2="19" y2="13.5" stroke="#3a2410" stroke-width="1" opacity="0.55"/>
+    <line x1="23" y1="6.5" x2="23" y2="13.5" stroke="#3a2410" stroke-width="1" opacity="0.55"/>
+    <line x1="27" y1="6.5" x2="27" y2="13.5" stroke="#3a2410" stroke-width="1" opacity="0.55"/>
+    <!-- Cross-guard -->
+    <rect x="31" y="1.5" width="4.5" height="17" rx="2" fill="#58687a"/>
+    <rect x="31" y="1.5" width="4.5" height="8.5" rx="2" fill="#7a8ea2" opacity="0.55"/>
+    <!-- Guard gem -->
+    <circle cx="33.2" cy="10" r="2" fill="#8b1a1a"/>
+    <circle cx="33.2" cy="10" r="1" fill="#cc3333" opacity="0.7"/>
+    <!-- Blade body -->
+    <polygon points="35.5,5.5 93,8.5 93,11.5 35.5,14.5" fill="#aabccc"/>
+    <polygon points="35.5,5.5 93,8.5 93,10 35.5,10"     fill="#cddce8" opacity="0.75"/>
+    <!-- Fuller (blade groove) -->
+    <line x1="38" y1="10" x2="90" y2="10" stroke="#7892a2" stroke-width="0.85" opacity="0.45"/>
+    <!-- Tip -->
+    <polygon points="90,8.5 100,10 90,11.5" fill="#ddeaf5"/>
+    <!-- Blade edge highlight -->
+    <line x1="36" y1="5.6" x2="91" y2="8.6" stroke="#e8f0f8" stroke-width="0.7" opacity="0.5"/>
+  </g>
+  </svg>`;
+}
+
+// ═══════════════════════════════════════════
+//  BUILD SWORDS
+// ═══════════════════════════════════════════
+function buildSwords(){
+  const sc=document.getElementById('syn-swords');
+  const ac=document.getElementById('ant-swords');
+  sc.innerHTML=''; ac.innerHTML='';
+
+  for(let i=0;i<4;i++){
+    // SYN
+    const slot=document.createElement('div'); slot.className='sword-slot';
+    const btn=document.createElement('button'); btn.className='sword-btn';
+    btn.innerHTML=makeSword('right');
+    if(gs.usedSwords.includes(i)) btn.classList.add('used');
+    if(gs.status!=='playing') btn.disabled=true;
+    btn.addEventListener('click',()=>onSword(i,'syn',btn,slot));
+    const chip=document.createElement('div');
+    chip.className='hint-chip'; chip.id=`cs${i}`;
+    if(gs.revealedSyns.includes(i)){chip.textContent=wordEntry.synonyms[i];chip.classList.add('show');}
+    slot.appendChild(btn); slot.appendChild(chip); sc.appendChild(slot);
+
+    // ANT
+    const slot2=document.createElement('div'); slot2.className='sword-slot';
+    const btn2=document.createElement('button'); btn2.className='sword-btn';
+    btn2.innerHTML=makeSword('left');
+    const gi=i+4;
+    if(gs.usedSwords.includes(gi)) btn2.classList.add('used');
+    if(gs.status!=='playing') btn2.disabled=true;
+    btn2.addEventListener('click',()=>onSword(gi,'ant',btn2,slot2));
+    const chip2=document.createElement('div');
+    chip2.className='hint-chip antonym'; chip2.id=`ca${i}`;
+    if(gs.revealedAnts.includes(i)){chip2.textContent=wordEntry.antonyms[i];chip2.classList.add('show');}
+    slot2.appendChild(btn2); slot2.appendChild(chip2); ac.appendChild(slot2);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  SWORD CLICK
+// ═══════════════════════════════════════════
+function onSword(sIdx, side, btn, slot){
+  if(gs.status!=='playing'||gs.usedSwords.includes(sIdx)) return;
+  btn.disabled=true;
+  btn.classList.add(side==='syn'?'plunging':'plunging-left');
+
+  // Show skeleton hand
+  const rect=btn.getBoundingClientRect();
+  const hand=document.getElementById('skel-hand');
+  hand.style.left=(rect.left+rect.width/2-22)+'px';
+  hand.style.top=(rect.top+rect.height/2-28)+'px';
+  hand.style.display='block';
+  setTimeout(()=>{ hand.style.display='none'; },900);
+
+  const cursed = sIdx===CURSED_IDX;
+  playPlunge();
+
+  setTimeout(()=>{
+    btn.classList.add('used');
+    if(cursed){
+      playScream(); bloodFlash();
+      gs.status='lost'; gs.endTime=Date.now();
+      gs.usedSwords.push(sIdx); saveState(gs);
+      document.getElementById('man-svg').classList.add('dead');
+      setEyes('angry'); disableAll();
+      setTimeout(()=>showEnd(false),1200);
+    } else {
+      playGasp();
+      gs.usedSwords.push(sIdx); gs.hints++;
+      const hi=sIdx<4?sIdx:sIdx-4;
+      if(side==='syn'&&!gs.revealedSyns.includes(hi)){
+        gs.revealedSyns.push(hi);
+        const c=document.getElementById(`cs${hi}`);
+        if(c){c.textContent=wordEntry.synonyms[hi];c.classList.add('show');}
+      } else if(side==='ant'&&!gs.revealedAnts.includes(hi)){
+        gs.revealedAnts.push(hi);
+        const c=document.getElementById(`ca${hi}`);
+        if(c){c.textContent=wordEntry.antonyms[hi];c.classList.add('show');}
+      }
+      saveState(gs); updateStats();
+    }
+  },560);
+}
+
+// ═══════════════════════════════════════════
+//  GUESS
+// ═══════════════════════════════════════════
+function submitGuess(){
+  const inp=document.getElementById('guess-input');
+  const val=inp.value.trim().toUpperCase();
+  if(!val||gs.status!=='playing') return;
+  gs.guesses++; gs.guessedWords.push(val);
+  const resp=document.getElementById('spectre-response');
+  if(val===TARGET_WORD){
+    gs.status='won'; gs.endTime=Date.now(); saveState(gs);
+    resp.innerHTML=`<span class="correct">✓ CORRECT!</span> The word was ${TARGET_WORD}!`;
+    freeFlash(); setEyes('neutral');
+    const man=document.getElementById('man-svg'); man.classList.add('freed');
+    const ch=document.getElementById('chains'); if(ch) ch.style.display='none';
+    document.getElementById('guess-input').disabled=true;
+    document.getElementById('guess-btn').disabled=true;
+    disableAll();
+    setTimeout(()=>showEnd(true),1400);
+  } else {
+    resp.innerHTML=`<span style="font-family:'Cinzel',serif">"${val}"</span> is <span class="wrong">INCORRECT</span>. Guess again!`;
+    setEyes('angry'); setTimeout(()=>setEyes('neutral'),2200);
+  }
+  inp.value=''; saveState(gs); updateStats();
+}
+
+// ═══════════════════════════════════════════
+//  EYES
+// ═══════════════════════════════════════════
+function setEyes(state){
+  ['left-lid','right-lid'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.className='eye-lid '+(state==='angry'?'angry':'neutral');
+  });
+}
+
+// ═══════════════════════════════════════════
+//  FLASH
+// ═══════════════════════════════════════════
+function bloodFlash(){const d=document.createElement('div');d.className='blood-drip';document.body.appendChild(d);setTimeout(()=>d.remove(),1400);}
+function freeFlash() {const d=document.createElement('div');d.className='free-flash'; document.body.appendChild(d);setTimeout(()=>d.remove(),1400);}
+
+// ═══════════════════════════════════════════
+//  TIMER
+// ═══════════════════════════════════════════
+let tiv=null;
+function startTimer(){ tiv=setInterval(()=>{ if(gs.status!=='playing'){clearInterval(tiv);return;} updateStats(); },1000); }
+function elapsed(){ return Math.floor(((gs.endTime||Date.now())-gs.startTime)/1000); }
+function fmt(s){ return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`; }
+function updateStats(){
+  document.getElementById('stat-guesses').textContent=gs.guesses;
+  document.getElementById('stat-hints').textContent=gs.hints;
+  document.getElementById('stat-time').textContent=fmt(elapsed());
+}
+
+// ═══════════════════════════════════════════
+//  END OVERLAY
+// ═══════════════════════════════════════════
+function showEnd(won){
+  const ov=document.getElementById('end-overlay');
+  const card=document.getElementById('end-card');
+  const title=document.getElementById('end-title');
+  const body=document.getElementById('end-body');
+  const wordEl=document.getElementById('end-word');
+  const stats=document.getElementById('end-stats');
+  const btn=document.getElementById('share-btn');
+  const el=fmt(elapsed());
+  if(won){
+    card.className='end-card win'; title.className='end-title win'; title.textContent='FREED!';
+    body.innerHTML='The man has been released from the Spectre\'s curse. The word was:';
+    wordEl.textContent=TARGET_WORD;
+    stats.innerHTML=`GUESSES: ${gs.guesses} &nbsp;|&nbsp; HINTS: ${gs.hints} &nbsp;|&nbsp; TIME: ${el}`;
+    btn.className='share-btn'; btn.textContent='⚔ SHARE VICTORY';
+  } else {
+    card.className='end-card lose'; title.className='end-title lose'; title.textContent='STRUCK DOWN!';
+    body.innerHTML='The cursed sword has pierced the man. He is lost. The word was:';
+    wordEl.textContent=TARGET_WORD;
+    stats.innerHTML=`GUESSES: ${gs.guesses} &nbsp;|&nbsp; HINTS USED: ${gs.hints}<br>Return tomorrow for a new word.`;
+    btn.className='share-btn lose-btn'; btn.textContent='💀 SHARE DEFEAT';
+  }
+  ov.classList.add('visible');
+  btn.onclick=()=>share(won);
+}
+
+function share(won){
+  const el=fmt(elapsed());
+  const dateStr=document.getElementById('today-date').textContent;
+  const swords=Array.from({length:8},(_,i)=>{
+    if(i===CURSED_IDX) return gs.usedSwords.includes(i)?'🗡️':'⚫';
+    return gs.usedSwords.includes(i)?'🔵':'⚫';
+  }).join('');
+  const text=`⬡ LETTER SPECTRE ⬡\n${dateStr}\n\n${won?'⚔️ VICTORY':'💀 DEFEATED'}\nGuesses: ${gs.guesses}\nHints: ${gs.hints}\nTime: ${el}\n\nSwords: ${swords}\n\nletterspectre.com`;
+  navigator.clipboard.writeText(text).then(()=>toast('Copied!')).catch(()=>{
+    const ta=document.createElement('textarea'); ta.value=text;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Copied!');
+  });
+}
+
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function disableAll(){ document.querySelectorAll('.sword-btn').forEach(b=>b.disabled=true); }
+
+// ═══════════════════════════════════════════
+//  DATE
+// ═══════════════════════════════════════════
+function setDate(){
+  const now=new Date();
+  const est=new Date(now.toLocaleString("en-US",{timeZone:"America/New_York"}));
+  if(est.getHours()<8) est.setDate(est.getDate()-1);
+  document.getElementById('today-date').textContent=est.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+
+// ═══════════════════════════════════════════
+//  RESTORE
+// ═══════════════════════════════════════════
+function restore(){
+  if(gs.status==='won'){
+    document.getElementById('man-svg').classList.add('freed');
+    const ch=document.getElementById('chains'); if(ch) ch.style.display='none';
+    document.getElementById('spectre-response').innerHTML=`The word was <span style="color:var(--purple-glow);font-family:'Cinzel',serif">${TARGET_WORD}</span>.`;
+    document.getElementById('guess-input').disabled=true;
+    document.getElementById('guess-btn').disabled=true;
+    disableAll(); setTimeout(()=>showEnd(true),400);
+  } else if(gs.status==='lost'){
+    document.getElementById('man-svg').classList.add('dead');
+    setEyes('angry');
+    document.getElementById('spectre-response').innerHTML='The cursed sword struck. Return tomorrow.';
+    document.getElementById('guess-input').disabled=true;
+    document.getElementById('guess-btn').disabled=true;
+    disableAll(); setTimeout(()=>showEnd(false),400);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+function init(){
+  setDate(); spawnParticles(); buildQGrid(); buildSwords(); updateStats(); startTimer(); restore();
+  document.getElementById('bubble-close').addEventListener('click',()=>{
+    document.getElementById('modal-backdrop').classList.add('hidden');
+  });
+  document.getElementById('spectre-wrap').addEventListener('click',()=>{
+    document.getElementById('modal-backdrop').classList.remove('hidden');
+  });
+  document.getElementById('guess-input').addEventListener('keydown',e=>{ if(e.key==='Enter') submitGuess(); });
+  document.getElementById('guess-btn').addEventListener('click',submitGuess);
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
