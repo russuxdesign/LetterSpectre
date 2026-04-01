@@ -63,7 +63,7 @@
     cursor: pointer; font-family: sans-serif; font-weight: bold;
   }
 
-  /* GUESSER AREA - WIDENED & NO SPACING */
+  /* GUESSER AREA */
   #input-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; z-index: 101; }
   #status-msg { height: 20px; font-family: 'Cinzel', serif; font-size: 0.8rem; color: var(--red); margin-bottom: 5px; }
   #input-row { display: flex; align-items: stretch; }
@@ -170,14 +170,38 @@
   const gasp = new Audio('freesound_community-male-gasp-1-7183.mp3');
   const scream = new Audio('nematoki-falling-man-scream-450793.mp3');
   const winChime = new Audio('djartmusic-christmas-chimes-whoosh-264365.mp3');
-  
+
+  const dictionary = [
+    { w: "SACRIFICE", h: ["OFFERING", "LOSS", "TOLL", "SURRENDER", "GAIN", "WIN", "KEEP", "SAVE"] },
+    { w: "VALOR", h: ["BRAVERY", "COURAGE", "HEROISM", "SPIRIT", "FEAR", "COWARDICE", "WEAKNESS", "DREAD"] },
+    { w: "ENIGMA", h: ["PUZZLE", "MYSTERY", "RIDDLE", "CONUNDRUM", "ANSWER", "SOLUTION", "CLARITY", "FACT"] },
+    { w: "ANCIENT", h: ["ANTIQUE", "AGED", "RELICT", "PRIMEVAL", "MODERN", "RECENT", "NEW", "CURRENT"] },
+    { w: "SHADOW", h: ["DARKNESS", "GLOOM", "OBSCURITY", "SHADE", "LIGHT", "BRIGHTNESS", "SUN", "GLARE"] }
+  ];
+
+  function getDailySeed() {
+    const now = new Date();
+    const offsetDate = new Date(now.getTime() - (8 * 60 * 60 * 1000));
+    return offsetDate.getFullYear() * 10000 + (offsetDate.getMonth() + 1) * 100 + offsetDate.getDate();
+  }
+
+  function seededRandom(seed) {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  const seed = getDailySeed();
+  const wordIdx = Math.floor(seededRandom(seed) * dictionary.length);
+  const dailyEntry = dictionary[wordIdx];
+
   const gameData = {
-    word: "SACRIFICE",
-    hints: ["OFFERING", "LOSS", "TOLL", "SURRENDER", "GAIN", "WIN", "KEEP", "SAVE"],
-    cursed: 2,
+    word: dailyEntry.w,
+    hints: dailyEntry.h,
+    cursed: Math.floor(seededRandom(seed + 1) * 8),
     guesses: 0,
     swordsUsed: 0,
-    startTime: Date.now()
+    startTime: Date.now(),
+    dateString: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
   };
 
   let active = true;
@@ -239,14 +263,14 @@
       title.innerText = "FREED";
       title.style.color = "var(--cyan)";
       retry.style.display = "none";
-      stats.innerHTML = `• Word: ${gameData.word}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
+      stats.innerHTML = `• Date: ${gameData.dateString}<br>• Word: ${gameData.word}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
     } else {
       scream.play();
       title.innerText = "DEAD";
       title.style.color = "var(--red)";
       retry.style.display = "block";
       document.getElementById('box-img').style.filter = "sepia(1) contrast(0.5) brightness(0.3)";
-      stats.innerHTML = `• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
+      stats.innerHTML = `• Date: ${gameData.dateString}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
     }
 
     overlay.style.display = 'flex';
@@ -254,7 +278,6 @@
 
   function share() {
     const statsElement = document.getElementById('end-stats');
-    // Remove the secret word line from sharing string
     let statsText = statsElement.innerText.replace(/• Word: .*\n?/, '');
     statsText = statsText.replace(/\n/g, ' | '); 
     
