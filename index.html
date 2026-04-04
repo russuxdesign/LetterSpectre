@@ -36,7 +36,7 @@
   #end-title { font-family:'Cinzel Decorative'; font-size:2.5rem; }
   #end-stats { margin: 15px 0; text-align: left; line-height: 1.6; min-width: 200px; }
   .end-btn { margin-top: 10px; padding: 12px 25px; font-family: 'Cinzel', serif; cursor: pointer; border-radius: 4px; border: none; width: 200px; }
-  .hint-text { font-family: 'Cinzel', serif; font-size: 0.75rem; text-shadow: 0 0 8px currentColor; text-align: center; }
+  .hint-text { font-family: 'Cinzel', serif; font-size: 0.85rem; font-weight: bold; text-shadow: 0 0 8px currentColor; text-align: center; }
   #loading-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; justify-content: center; align-items: center; font-family: 'Cinzel'; }
 </style>
 </head>
@@ -100,25 +100,35 @@
   async function fetchValidWord(rand, filtered) {
     let valid = false;
     let word = "";
-    let syns = [];
-    let ants = [];
+    let finalHints = [];
     let attempts = 0;
 
-    while (!valid && attempts < 20) {
+    while (!valid && attempts < 50) {
       attempts++;
-      word = filtered[Math.floor(rand() * filtered.length)].toUpperCase();
-      const sRes = await fetch(`https://api.datamuse.com/words?rel_syn=${word}&max=4`);
-      const aRes = await fetch(`https://api.datamuse.com/words?rel_ant=${word}&max=4`);
-      syns = (await sRes.json()).map(o => o.word.toUpperCase());
-      ants = (await aRes.json()).map(o => o.word.toUpperCase());
+      // Pick a random word from the 370k word dictionary
+      let testWord = filtered[Math.floor(rand() * filtered.length)].toUpperCase();
+      
+      try {
+        const sRes = await fetch(`https://api.datamuse.com/words?rel_syn=${testWord}&max=4`);
+        const aRes = await fetch(`https://api.datamuse.com/words?rel_ant=${testWord}&max=4`);
+        const synData = await sRes.json();
+        const antData = await aRes.json();
 
-      if (syns.length >= 3) { 
-        valid = true;
-        while(syns.length < 4) syns.push("LEGACY");
-        while(ants.length < 4) ants.push(syns[0] === "LEGACY" ? "VOID" : "???");
-      }
+        // STRICT CHECK: Must have 4 synonyms and at least 2 antonyms (antonyms are rarer)
+        if (synData.length >= 4 && antData.length >= 2) {
+          word = testWord;
+          let syns = synData.map(o => o.word.toUpperCase());
+          let ants = antData.map(o => o.word.toUpperCase());
+          
+          // Fill remaining antonym slots with fallback if only 2 or 3 exist
+          while(ants.length < 4) ants.push("VOID"); 
+          
+          finalHints = [...syns, ...ants];
+          valid = true;
+        }
+      } catch (e) { continue; }
     }
-    return { word, hints: [...syns, ...ants] };
+    return { word, hints: finalHints };
   }
 
   async function initGame() {
@@ -127,13 +137,14 @@
     try {
       const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_dictionary.json');
       const allWords = await response.json();
-      const filtered = Object.keys(allWords).filter(w => w.length >= 5 && w.length <= 8 && !w.includes("-"));
+      // Only common lengths, no symbols
+      const filtered = Object.keys(allWords).filter(w => w.length >= 5 && w.length <= 8 && /^[a-zA-Z]+$/.test(w));
       
       const result = await fetchValidWord(rand, filtered);
       
       gameData = {
-        word: result.word,
-        hints: result.hints,
+        word: result.word || "GHOST", // Ultimate fallback
+        hints: result.hints.length ? result.hints : ["SPIRIT","SHADE","PHANTOM","WRAITH","LIFE","BEING","BODY","REAL"],
         cursed: Math.floor(rand() * 8),
         guesses: 0,
         swordsUsed: 0,
@@ -143,8 +154,7 @@
       };
       document.getElementById('loading-overlay').style.display = 'none';
     } catch (e) {
-      gameData = { word: "PHANTOM", hints: ["GHOST","SHADE","SPIRIT","SPECTRE","REAL","BODY","BEING","LIFE"], cursed: 2, guesses:0, swordsUsed:0, startTime: Date.now(), active: true, dateString: "Backup Mode" };
-      document.getElementById('loading-overlay').style.display = 'none';
+      document.getElementById('loading-overlay').innerText = "ERROR CONJURING... RELOAD.";
     }
   }
 
