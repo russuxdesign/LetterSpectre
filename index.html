@@ -74,9 +74,12 @@
   #end-stats { margin: 15px 0; text-align: left; line-height: 1.6; min-width: 200px; }
   .end-btn { margin-top: 10px; padding: 12px 25px; font-family: 'Cinzel', serif; cursor: pointer; border-radius: 4px; border: none; width: 200px; }
   .hint-text { font-family: 'Cinzel', serif; font-size: 0.75rem; text-shadow: 0 0 8px currentColor; text-align: center; }
+  #loading-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; justify-content: center; align-items: center; font-family: 'Cinzel'; }
 </style>
 </head>
 <body>
+
+<div id="loading-overlay">CONJURING THE SECRET...</div>
 
 <div id="spectre-container">
   <img id="spectre-img" src="spectrehead.png">
@@ -87,7 +90,7 @@
 <div id="bubble-wrap">
   <div id="bubble">
     <div id="close-bubble" onclick="this.parentElement.parentElement.style.display='none'">X</div>
-    <p>I’m thinking of a word. Guess what it is to free the man in the box. One sword is <span style="color:var(--cyan); font-weight:bold;">CURSED</span>.</p>
+    <p>I’m thinking of a word. Guess what it is to free the man in the box. Need a hint? Choose a sword. I should warn you though, one of the swords is <span style="color:var(--cyan); font-weight:bold;">CURSED</span> and will <span style="color:var(--red); font-weight:bold;">STRIKE</span> the man.</p>
   </div>
 </div>
 
@@ -129,52 +132,63 @@
   const scream = new Audio('nematoki-falling-man-scream-450793.mp3');
   const winChime = new Audio('djartmusic-christmas-chimes-whoosh-264365.mp3');
 
-  // THE EXPANDED LIBRARY
-  const eternityLibrary = [
-    { w: "SACRIFICE", h: ["OFFERING", "LOSS", "TOLL", "SURRENDER", "GAIN", "WIN", "KEEP", "SAVE"] },
-    { w: "VALOR", h: ["BRAVERY", "COURAGE", "HEROISM", "SPIRIT", "FEAR", "COWARDICE", "WEAKNESS", "DREAD"] },
-    { w: "ENIGMA", h: ["PUZZLE", "MYSTERY", "RIDDLE", "CONUNDRUM", "ANSWER", "SOLUTION", "CLARITY", "FACT"] },
-    { w: "ANCIENT", h: ["ANTIQUE", "AGED", "RELICT", "PRIMEVAL", "MODERN", "RECENT", "NEW", "CURRENT"] },
-    { w: "SHADOW", h: ["DARKNESS", "GLOOM", "OBSCURITY", "SHADE", "LIGHT", "BRIGHTNESS", "SUN", "GLARE"] },
-    { w: "ETERNAL", h: ["ENDLESS", "TIMELESS", "PERPETUAL", "IMMORTAL", "FINITE", "MORTAL", "ENDING", "TEMPORARY"] },
-    { w: "PHANTOM", h: ["GHOST", "SPIRIT", "SPECTRE", "WRAITH", "REALITY", "BEING", "ENTITY", "BODY"] },
-    { w: "FORBIDDEN", h: ["BANNED", "VETOED", "TABOO", "OUTLAWED", "ALLOWED", "PERMITTED", "LEGAL", "OPEN"] },
-    { w: "OBSIDIAN", h: ["JET", "EBONY", "ONYX", "DARK", "IVORY", "WHITE", "CLEAR", "BRIGHT"] },
-    { w: "CRYPTIC", h: ["VAGUE", "ARCANE", "HIDDEN", "OBSCURE", "OBVIOUS", "PLAIN", "CLEAR", "EXPLICIT"] },
-    { w: "ALCHEMIST", h: ["MAGUS", "SORCERER", "WIZARD", "SAGE", "FOOL", "AMATEUR", "IGNORANT", "NOVICE"] },
-    { w: "CELESTIAL", h: ["DIVINE", "STELLAR", "ASTRAL", "HOLY", "EARTHLY", "MORTAL", "VULGAR", "HELLISH"] },
-    { w: "CATACOMB", h: ["VAULT", "TOMB", "CRYPT", "BURIAL", "SKY", "PEAK", "SURFACE", "OPENING"] },
-    { w: "DRASTIC", h: ["EXTREME", "SEVERE", "HARSH", "RADICAL", "MILD", "SLIGHT", "GENTLE", "MINOR"] },
-    { w: "REVENANT", h: ["SPIRIT", "SHADE", "ZOMBIE", "GHOST", "LIVING", "HUMAN", "ALIVE", "MORTAL"] },
-    { w: "NEBULOUS", h: ["CLOUDY", "HAZY", "FUZZY", "MISTY", "SHARP", "CLEAR", "DEFINED", "BRIGHT"] },
-    { w: "SINISTER", h: ["EVIL", "OMINOUS", "BALEFUL", "MALIGN", "GOOD", "KIND", "HOLY", "BENIGN"] },
-    { w: "VOYAGE", h: ["JOURNEY", "TREK", "QUEST", "CRUISE", "HALT", "STAY", "WAIT", "STOP"] },
-    { w: "MONARCH", h: ["KING", "RULER", "TYRANT", "CROWN", "SLAVE", "PEASANT", "SERF", "SUBJECT"] },
-    { w: "INFAMOUS", h: ["NOTED", "SHAMEFUL", "WICKED", "ODIOUS", "FAMOUS", "NOBLE", "GREAT", "HEROIC"] }
-  ];
+  let gameData = { word: "", hints: [], cursed: 0, guesses: 0, swordsUsed: 0, startTime: 0, active: false };
+
+  async function initGame() {
+    const seed = getGameDaySeed();
+    const rand = mulberry32(seed);
+
+    try {
+      // Fetch common 5-10 letter English words (approx 2500 words)
+      const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_dictionary.json');
+      const allWords = await response.json();
+      const filtered = Object.keys(allWords).filter(w => w.length >= 5 && w.length <= 9 && !w.includes("-"));
+      
+      const word = filtered[Math.floor(rand() * filtered.length)].toUpperCase();
+      
+      // Fetch Synonyms and Antonyms via Datamuse API
+      const synRes = await fetch(`https://api.datamuse.com/words?rel_syn=${word}&max=4`);
+      const antRes = await fetch(`https://api.datamuse.com/words?rel_ant=${word}&max=4`);
+      
+      const syns = (await synRes.json()).map(o => o.word.toUpperCase());
+      const ants = (await antRes.json()).map(o => o.word.toUpperCase());
+
+      // Fill blanks if API lacks enough data
+      while(syns.length < 4) syns.push("???");
+      while(ants.length < 4) ants.push("???");
+
+      gameData = {
+        word: word,
+        hints: [...syns, ...ants],
+        cursed: Math.floor(rand() * 8),
+        guesses: 0,
+        swordsUsed: 0,
+        startTime: Date.now(),
+        active: true,
+        dateString: new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric'}).format(new Date())
+      };
+
+      document.getElementById('loading-overlay').style.display = 'none';
+    } catch (e) {
+      console.error("Dictionary failed, using backup", e);
+      // Fail-safe word
+      gameData.word = "OBSIDIAN";
+      gameData.active = true;
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
+  }
 
   function getGameDaySeed() {
-    // FORCED 8:00 AM EST RESET
     const now = new Date();
-    const nyTime = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/New_York',
-      year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', hour12: false
-    }).formatToParts(now);
-
-    const d = {};
-    nyTime.forEach(p => d[p.type] = p.value);
-
-    let year = parseInt(d.year);
-    let month = parseInt(d.month);
-    let day = parseInt(d.day);
+    const formatter = new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', hour12: false, hour: 'numeric', day: 'numeric', month: 'numeric', year: 'numeric'});
+    const parts = formatter.formatToParts(now);
+    const d = {}; parts.forEach(p => d[p.type] = p.value);
+    
     let hour = parseInt(d.hour);
-
-    if (hour < 8) {
-      const yesterday = new Date(new Date().toLocaleString("en-US", {timeZone: "America/New_York"}));
-      yesterday.setDate(yesterday.getDate() - 1);
-      return yesterday.getFullYear() * 10000 + (yesterday.getMonth() + 1) * 100 + yesterday.getDate();
-    }
-    return year * 10000 + month * 100 + day;
+    let dayDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/New_York"}));
+    if (hour < 8) dayDate.setDate(dayDate.getDate() - 1);
+    
+    return dayDate.getFullYear() * 10000 + (dayDate.getMonth() + 1) * 100 + dayDate.getDate();
   }
 
   function mulberry32(a) {
@@ -186,26 +200,8 @@
     }
   }
 
-  const seed = getGameDaySeed();
-  const rand = mulberry32(seed);
-
-  const wordIdx = Math.floor(rand() * eternityLibrary.length);
-  const dailyEntry = eternityLibrary[wordIdx];
-
-  const gameData = {
-    word: dailyEntry.w,
-    hints: dailyEntry.h,
-    cursed: Math.floor(rand() * 8),
-    guesses: 0,
-    swordsUsed: 0,
-    startTime: Date.now(),
-    dateString: new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric'}).format(new Date())
-  };
-
-  let active = true;
-
   function doPlunge(el, idx, isMirrored) {
-    if (!active || el.querySelector('.hint-text')) return;
+    if (!gameData.active || el.querySelector('.hint-text')) return;
     gameData.swordsUsed++;
     el.innerHTML = `<img src="sword-yeshand.png" class="hand-plunge" style="${isMirrored ? 'transform: scaleX(-1)' : ''}">`;
     const hand = el.querySelector('.hand-plunge');
@@ -230,61 +226,49 @@
   }
 
   function submitGuess() {
-    if (!active) return;
+    if (!gameData.active) return;
     const input = document.getElementById('guess-input');
     const val = input.value.trim().toUpperCase();
-    const status = document.getElementById('status-msg');
     if (val === "") return;
     gameData.guesses++;
     if (val === gameData.word) {
       endGame(true);
     } else {
-      status.innerText = `${val} is INCORRECT`;
+      document.getElementById('status-msg').innerText = `${val} IS INCORRECT`;
     }
     input.value = "";
   }
 
   function endGame(won) {
-    active = false;
+    gameData.active = false;
     const duration = Math.floor((Date.now() - gameData.startTime) / 1000);
     const overlay = document.getElementById('end-overlay');
-    const title = document.getElementById('end-title');
-    const stats = document.getElementById('end-stats');
-    const retry = document.getElementById('retry-btn');
-    
     if (won) {
       winChime.play();
-      title.innerText = "FREED";
-      title.style.color = "var(--cyan)";
-      retry.style.display = "none";
-      stats.innerHTML = `• Date: ${gameData.dateString}<br>• Word: ${gameData.word}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
+      document.getElementById('end-title').innerText = "FREED";
+      document.getElementById('end-title').style.color = "var(--cyan)";
+      document.getElementById('retry-btn').style.display = "none";
+      document.getElementById('end-stats').innerHTML = `• Date: ${gameData.dateString}<br>• Word: ${gameData.word}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
     } else {
       scream.play();
-      title.innerText = "DEAD";
-      title.style.color = "var(--red)";
-      retry.style.display = "block";
+      document.getElementById('end-title').innerText = "DEAD";
+      document.getElementById('end-title').style.color = "var(--red)";
       document.getElementById('box-img').style.filter = "sepia(1) contrast(0.5) brightness(0.3)";
-      stats.innerHTML = `• Date: ${gameData.dateString}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
+      document.getElementById('end-stats').innerHTML = `• Date: ${gameData.dateString}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
     }
     overlay.style.display = 'flex';
   }
 
   function share() {
-    const statsElement = document.getElementById('end-stats');
-    let statsText = statsElement.innerText.replace(/• Word: .*\n?/, '');
-    statsText = statsText.replace(/\n/g, ' | '); 
-    const status = document.getElementById('end-title').innerText;
-    const url = "https://russuxdesign.github.io/LetterSpectre/";
-    const text = `Letter Spectre: ${status}!\n${statsText}\nPlay here: ${url}`;
-    navigator.clipboard.writeText(text).then(() => {
-        alert("Stats and link copied to clipboard!");
-    });
+    const statsText = document.getElementById('end-stats').innerText.replace(/• Word: .*\n?/, '').replace(/\n/g, ' | '); 
+    const text = `Letter Spectre: ${document.getElementById('end-title').innerText}!\n${statsText}\nPlay here: https://russuxdesign.github.io/LetterSpectre/`;
+    navigator.clipboard.writeText(text).then(() => alert("Stats copied!"));
   }
 
-  document.getElementById('guess-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') submitGuess();
-  });
+  document.getElementById('guess-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') submitGuess(); });
   document.getElementById('guess-btn').onclick = submitGuess;
+  
+  initGame();
 </script>
 </body>
 </html>
