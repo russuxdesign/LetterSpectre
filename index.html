@@ -6,60 +6,23 @@
 <title>Letter Spectre</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #030008;
-    --purple: #6b21a8;
-    --cyan: #22d3ee;
-    --red: #ff2222;
-  }
+  :root { --bg: #030008; --purple: #6b21a8; --cyan: #22d3ee; --red: #ff2222; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: var(--bg);
-    color: #e2d4f0;
-    font-family: 'Crimson Text', serif;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow: hidden;
-  }
+  body { background: var(--bg); color: #e2d4f0; font-family: 'Crimson Text', serif; height: 100vh; display: flex; flex-direction: column; align-items: center; overflow: hidden; }
   #spectre-container { width: 240px; height: 180px; margin-top: 5px; position: relative; z-index: 100; }
   #spectre-img { width: 100%; height: 100%; object-fit: contain; }
-  .eye-glow {
-    position: absolute; top: 42%; width: 8px; height: 5px;
-    background: var(--red); border-radius: 50%; filter: blur(3px);
-    box-shadow: 0 0 12px 4px var(--red);
-    animation: eyePulse 3s infinite ease-in-out;
-  }
-  #eye-left { left: 43%; }
-  #eye-right { right: 43%; }
+  .eye-glow { position: absolute; top: 42%; width: 8px; height: 5px; background: var(--red); border-radius: 50%; filter: blur(3px); box-shadow: 0 0 12px 4px var(--red); animation: eyePulse 3s infinite ease-in-out; }
+  #eye-left { left: 43%; } #eye-right { right: 43%; }
   @keyframes eyePulse { 0%, 100% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.3); } }
   #bubble-wrap { position: relative; margin: 10px 0; z-index: 90; }
-  #bubble {
-    background: rgba(15, 0, 30, 0.95); border: 2px solid var(--purple);
-    padding: 15px 35px 15px 15px; width: 90vw; max-width: 500px;
-    border-radius: 12px; text-align: center; position: relative;
-  }
-  #bubble::after {
-    content: ''; position: absolute; top: -15px; left: 50%;
-    transform: translateX(-50%); border-left: 15px solid transparent;
-    border-right: 15px solid transparent; border-bottom: 15px solid var(--purple);
-  }
+  #bubble { background: rgba(15, 0, 30, 0.95); border: 2px solid var(--purple); padding: 15px 35px 15px 15px; width: 90vw; max-width: 500px; border-radius: 12px; text-align: center; position: relative; }
+  #bubble::after { content: ''; position: absolute; top: -15px; left: 50%; transform: translateX(-50%); border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 15px solid var(--purple); }
   #close-bubble { position: absolute; right: 10px; top: 5px; color: var(--purple); cursor: pointer; font-family: sans-serif; font-weight: bold; }
   #input-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 10px; z-index: 101; }
   #status-msg { height: 20px; font-family: 'Cinzel', serif; font-size: 0.8rem; color: var(--red); margin-bottom: 5px; }
   #input-row { display: flex; align-items: stretch; }
-  #guess-input {
-    background: #000; border: 1px solid var(--purple); color: white;
-    padding: 10px; font-family: 'Cinzel', serif; width: 280px;
-    border-top-left-radius: 5px; border-bottom-left-radius: 5px; border-right: none;
-    text-transform: uppercase; outline: none;
-  }
-  #guess-btn { 
-    background: linear-gradient(to bottom, var(--purple), #3b0764);
-    color: white; border: 1px solid var(--purple); padding: 0 20px; 
-    border-top-right-radius: 5px; border-bottom-right-radius: 5px; cursor: pointer;
-  }
+  #guess-input { background: #000; border: 1px solid var(--purple); color: white; padding: 10px; font-family: 'Cinzel', serif; width: 280px; border-top-left-radius: 5px; border-bottom-left-radius: 5px; border-right: none; text-transform: uppercase; outline: none; }
+  #guess-btn { background: linear-gradient(to bottom, var(--purple), #3b0764); color: white; border: 1px solid var(--purple); padding: 0 20px; border-top-right-radius: 5px; border-bottom-right-radius: 5px; cursor: pointer; }
   .column-label { font-family: 'Cinzel', serif; font-size: 0.7rem; color: var(--purple); letter-spacing: 2px; margin-bottom: 4px; }
   #game-stage { flex: 1; width: 100%; max-width: 900px; display: flex; justify-content: center; align-items: center; gap: 5px; }
   #box-wrap { width: 380px; position: relative; z-index: 20; }
@@ -134,32 +97,43 @@
 
   let gameData = { word: "", hints: [], cursed: 0, guesses: 0, swordsUsed: 0, startTime: 0, active: false };
 
+  async function fetchValidWord(rand, filtered) {
+    let valid = false;
+    let word = "";
+    let syns = [];
+    let ants = [];
+    let attempts = 0;
+
+    while (!valid && attempts < 20) {
+      attempts++;
+      word = filtered[Math.floor(rand() * filtered.length)].toUpperCase();
+      const sRes = await fetch(`https://api.datamuse.com/words?rel_syn=${word}&max=4`);
+      const aRes = await fetch(`https://api.datamuse.com/words?rel_ant=${word}&max=4`);
+      syns = (await sRes.json()).map(o => o.word.toUpperCase());
+      ants = (await aRes.json()).map(o => o.word.toUpperCase());
+
+      if (syns.length >= 3) { 
+        valid = true;
+        while(syns.length < 4) syns.push("LEGACY");
+        while(ants.length < 4) ants.push(syns[0] === "LEGACY" ? "VOID" : "???");
+      }
+    }
+    return { word, hints: [...syns, ...ants] };
+  }
+
   async function initGame() {
     const seed = getGameDaySeed();
     const rand = mulberry32(seed);
-
     try {
-      // Fetch common 5-10 letter English words (approx 2500 words)
       const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_dictionary.json');
       const allWords = await response.json();
-      const filtered = Object.keys(allWords).filter(w => w.length >= 5 && w.length <= 9 && !w.includes("-"));
+      const filtered = Object.keys(allWords).filter(w => w.length >= 5 && w.length <= 8 && !w.includes("-"));
       
-      const word = filtered[Math.floor(rand() * filtered.length)].toUpperCase();
+      const result = await fetchValidWord(rand, filtered);
       
-      // Fetch Synonyms and Antonyms via Datamuse API
-      const synRes = await fetch(`https://api.datamuse.com/words?rel_syn=${word}&max=4`);
-      const antRes = await fetch(`https://api.datamuse.com/words?rel_ant=${word}&max=4`);
-      
-      const syns = (await synRes.json()).map(o => o.word.toUpperCase());
-      const ants = (await antRes.json()).map(o => o.word.toUpperCase());
-
-      // Fill blanks if API lacks enough data
-      while(syns.length < 4) syns.push("???");
-      while(ants.length < 4) ants.push("???");
-
       gameData = {
-        word: word,
-        hints: [...syns, ...ants],
+        word: result.word,
+        hints: result.hints,
         cursed: Math.floor(rand() * 8),
         guesses: 0,
         swordsUsed: 0,
@@ -167,13 +141,9 @@
         active: true,
         dateString: new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric'}).format(new Date())
       };
-
       document.getElementById('loading-overlay').style.display = 'none';
     } catch (e) {
-      console.error("Dictionary failed, using backup", e);
-      // Fail-safe word
-      gameData.word = "OBSIDIAN";
-      gameData.active = true;
+      gameData = { word: "PHANTOM", hints: ["GHOST","SHADE","SPIRIT","SPECTRE","REAL","BODY","BEING","LIFE"], cursed: 2, guesses:0, swordsUsed:0, startTime: Date.now(), active: true, dateString: "Backup Mode" };
       document.getElementById('loading-overlay').style.display = 'none';
     }
   }
@@ -183,11 +153,8 @@
     const formatter = new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', hour12: false, hour: 'numeric', day: 'numeric', month: 'numeric', year: 'numeric'});
     const parts = formatter.formatToParts(now);
     const d = {}; parts.forEach(p => d[p.type] = p.value);
-    
-    let hour = parseInt(d.hour);
     let dayDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/New_York"}));
-    if (hour < 8) dayDate.setDate(dayDate.getDate() - 1);
-    
+    if (parseInt(d.hour) < 8) dayDate.setDate(dayDate.getDate() - 1);
     return dayDate.getFullYear() * 10000 + (dayDate.getMonth() + 1) * 100 + dayDate.getDate();
   }
 
@@ -206,21 +173,16 @@
     el.innerHTML = `<img src="sword-yeshand.png" class="hand-plunge" style="${isMirrored ? 'transform: scaleX(-1)' : ''}">`;
     const hand = el.querySelector('.hand-plunge');
     const box = document.getElementById('box-img').getBoundingClientRect();
-    const sRect = el.getBoundingClientRect();
-    const distance = isMirrored ? (sRect.left - box.left - 60) * -1 : (box.right - sRect.right - 60);
-
+    const distance = isMirrored ? (el.getBoundingClientRect().left - box.left - 60) * -1 : (box.right - el.getBoundingClientRect().right - 60);
     setTimeout(() => {
       hand.style.transform = `translateX(${distance}px) ${isMirrored ? 'scaleX(-1)' : 'scaleX(1)'}`;
       setTimeout(() => hand.style.opacity = "0", 300);
     }, 50);
-
     setTimeout(() => {
-      if (idx === gameData.cursed) {
-        endGame(false);
-      } else {
+      if (idx === gameData.cursed) endGame(false);
+      else {
         gasp.play();
-        const color = isMirrored ? 'white' : 'var(--cyan)';
-        el.innerHTML = `<span class="hint-text" style="color:${color}">${gameData.hints[idx]}</span>`;
+        el.innerHTML = `<span class="hint-text" style="color:${isMirrored ? 'white' : 'var(--cyan)'}">${gameData.hints[idx]}</span>`;
       }
     }, 650);
   }
@@ -231,11 +193,8 @@
     const val = input.value.trim().toUpperCase();
     if (val === "") return;
     gameData.guesses++;
-    if (val === gameData.word) {
-      endGame(true);
-    } else {
-      document.getElementById('status-msg').innerText = `${val} IS INCORRECT`;
-    }
+    if (val === gameData.word) endGame(true);
+    else document.getElementById('status-msg').innerText = `${val} IS INCORRECT`;
     input.value = "";
   }
 
@@ -267,7 +226,6 @@
 
   document.getElementById('guess-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') submitGuess(); });
   document.getElementById('guess-btn').onclick = submitGuess;
-  
   initGame();
 </script>
 </body>
