@@ -35,7 +35,9 @@
   #end-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
   #end-title { font-family:'Cinzel Decorative'; font-size:2.5rem; }
   #end-stats { margin: 15px 0; text-align: left; line-height: 1.6; min-width: 200px; }
-  .end-btn { margin-top: 10px; padding: 12px 25px; font-family: 'Cinzel', serif; cursor: pointer; border-radius: 4px; border: none; width: 200px; }
+  .end-btn { margin-top: 10px; padding: 12px 25px; font-family: 'Cinzel', serif; cursor: pointer; border-radius: 4px; border: none; width: 200px; text-transform: uppercase; font-weight: bold; }
+  .end-btn-secondary { background: transparent; color: var(--cyan); border: 1px solid var(--cyan); }
+  #revealed-word-box { margin-top: 10px; font-family: 'Cinzel', serif; font-size: 1.1rem; color: var(--cyan); letter-spacing: 2px; text-shadow: 0 0 10px var(--cyan); display: none; }
   .hint-text { font-family: 'Cinzel', serif; font-size: 0.8rem; font-weight: bold; text-shadow: 0 0 8px currentColor; text-align: center; }
   #loading-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; justify-content: center; align-items: center; font-family: 'Cinzel'; }
 </style>
@@ -87,6 +89,8 @@
   <h1 id="end-title"></h1>
   <div id="end-stats"></div>
   <button class="end-btn" style="background:white; color:black;" onclick="share()">SHARE RESULTS</button>
+  <button id="reveal-btn" class="end-btn end-btn-secondary" onclick="revealSecretWord()">REVEAL WORD</button>
+  <div id="revealed-word-box">WORD: <span id="revealed-word-text"></span></div>
   <button id="retry-btn" class="end-btn" style="background:var(--purple); color:white;" onclick="location.reload()">TRY AGAIN</button>
 </div>
 
@@ -102,24 +106,30 @@
     let finalHints = [];
     let attempts = 0;
 
-    // Use a shuffle based on the seed to ensure we don't just pick from the 'A' section of the dictionary
-    const startIdx = Math.floor(rand() * (allWordsArray.length - 100));
+    const startIdx = Math.floor(rand() * (allWordsArray.length - 200));
 
-    while (attempts < 100) {
+    while (attempts < 150) {
       attempts++;
-      let testWord = allWordsArray[startIdx + attempts].toUpperCase();
+      let testWord = allWordsArray[(startIdx + attempts) % allWordsArray.length].toUpperCase();
       
       try {
         const sRes = await fetch(`https://api.datamuse.com/words?rel_syn=${testWord}&max=4`);
         const aRes = await fetch(`https://api.datamuse.com/words?rel_ant=${testWord}&max=4`);
         const synData = await sRes.json();
-        const antData = await aRes.json();
+        let antData = await aRes.json();
 
-        if (synData.length >= 4) {
+        // If direct antonyms are missing, fetch complementary opposites via triggering words
+        if (antData.length < 4) {
+          const altAntRes = await fetch(`https://api.datamuse.com/words?rel_jjb=${testWord}&max=4`);
+          const altData = await altAntRes.json();
+          antData = [...antData, ...altData];
+        }
+
+        if (synData.length >= 4 && antData.length >= 4) {
           word = testWord;
-          let syns = synData.map(o => o.word.toUpperCase());
-          let ants = antData.map(o => o.word.toUpperCase());
-          while(ants.length < 4) ants.push(syns[0] === "VOID" ? "UNKNOWN" : "VOID");
+          let syns = synData.slice(0, 4).map(o => o.word.toUpperCase());
+          let ants = antData.slice(0, 4).map(o => o.word.toUpperCase());
+
           finalHints = [...syns, ...ants];
           return { word, hints: finalHints };
         }
@@ -152,8 +162,17 @@
       };
       document.getElementById('loading-overlay').style.display = 'none';
     } catch (e) {
-      // Robust fallback if external APIs are down
-      gameData = { word: "JOURNEY", hints: ["VOYAGE","TREK","QUEST","TOUR","HALT","STOP","STAY","STILL"], cursed: 3, guesses:0, swordsUsed:0, startTime: Date.now(), active: true, dateString: "Safe Mode" };
+      // Robust backup with real antonyms
+      gameData = { 
+        word: "JOURNEY", 
+        hints: ["VOYAGE","TREK","QUEST","TOUR","HALT","STOP","STAY","STILL"], 
+        cursed: 3, 
+        guesses: 0, 
+        swordsUsed: 0, 
+        startTime: Date.now(), 
+        active: true, 
+        dateString: new Intl.DateTimeFormat('en-US', {timeZone: 'America/New_York', month: '2-digit', day: '2-digit', year: 'numeric'}).format(new Date())
+      };
       document.getElementById('loading-overlay').style.display = 'none';
     }
   }
@@ -165,7 +184,6 @@
     const d = {}; parts.forEach(p => d[p.type] = p.value);
     let dayDate = new Date(new Date().toLocaleString("en-US", {timeZone: "America/New_York"}));
     if (parseInt(d.hour) < 8) dayDate.setDate(dayDate.getDate() - 1);
-    // This seed is unique for every single day for the next 100 years
     return dayDate.getFullYear() * 10000 + (dayDate.getMonth() + 1) * 100 + dayDate.getDate();
   }
 
@@ -213,20 +231,38 @@
     gameData.active = false;
     const duration = Math.floor((Date.now() - gameData.startTime) / 1000);
     const overlay = document.getElementById('end-overlay');
+    const revealBtn = document.getElementById('reveal-btn');
+    const wordBox = document.getElementById('revealed-word-box');
+
+    wordBox.style.display = "none";
+
     if (won) {
       winChime.play();
       document.getElementById('end-title').innerText = "FREED";
       document.getElementById('end-title').style.color = "var(--cyan)";
       document.getElementById('retry-btn').style.display = "none";
+      revealBtn.style.display = "none";
       document.getElementById('end-stats').innerHTML = `• Date: ${gameData.dateString}<br>• Word: ${gameData.word}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
     } else {
       scream.play();
       document.getElementById('end-title').innerText = "DEAD";
       document.getElementById('end-title').style.color = "var(--red)";
+      document.getElementById('retry-btn').style.display = "block";
+      revealBtn.style.display = "block";
       document.getElementById('box-img').style.filter = "sepia(1) contrast(0.5) brightness(0.3)";
       document.getElementById('end-stats').innerHTML = `• Date: ${gameData.dateString}<br>• Guesses: ${gameData.guesses}<br>• Swords: ${gameData.swordsUsed}<br>• Time: ${duration}s`;
     }
     overlay.style.display = 'flex';
+  }
+
+  function revealSecretWord() {
+    const revealBtn = document.getElementById('reveal-btn');
+    const wordBox = document.getElementById('revealed-word-box');
+    const wordText = document.getElementById('revealed-word-text');
+
+    revealBtn.style.display = "none";
+    wordText.innerText = gameData.word;
+    wordBox.style.display = "block";
   }
 
   function share() {
